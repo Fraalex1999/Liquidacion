@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Prototipo - Hoja de Liquidación (Web)</title>
+  <style>
+    :root{
+      --cell-height:36px; --font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      --border:#e0e6ef;
+    }
+    body{font-family:var(--font-family);margin:18px;background:#f4f6fa;color:#222}
+    h1{font-size:18px;margin:6px 0 14px}
+    .sheet-wrap{background:#fff;border-radius:8px;box-shadow:0 6px 20px rgba(20,30,60,0.06);padding:14px}
+    .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .btn{padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer}
+    .btn.primary{background:#0b69ff;color:#fff;border:none}
+
+    /* Table that looks like spreadsheet */
+    .sheet{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}
+    .sheet th,.sheet td{border:1px solid var(--border);padding:6px 8px;height:var(--cell-height);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .sheet thead th{position:sticky;top:0;z-index:2;color:#111}
+
+    /* Column header color backgrounds */
+    .h-gris{background:#88888F}
+    .h-grisd{background:#696969}
+    .h-azul{background:#4285f4}
+    .h-azulcielo{background:#8CD3FF}
+    .h-azulf{background:#2833BD}
+    .h-verde{background:#4EAD45}
+    .h-rosac{background:#FF9CCC}
+    .h-rosaf{background:#F95EFF}
+    .h-naranja{background:#ED9A11}
+    .h-registro{background:#fecaca}
+    .h-kilos{background:#bbf7d0}
+    .h-lavado{background:#e9d5ff}
+    .h-destino{background:#ddd6fe}
+    .h-comentarios{background:#fef3c7}
+
+    td.editable{background:linear-gradient(180deg, #ffffff, #fbfdff)}
+    td.editable:focus{outline:3px solid rgba(11,105,255,0.12)}
+
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,9,12,0.35);padding:18px}
+    .card{background:#fff;border-radius:10px;max-width:820px;width:100%;box-shadow:0 12px 40px rgba(14,28,70,0.12);padding:16px}
+
+    .row{display:flex;gap:12px}
+    .col{flex:1}
+    label{font-size:12px;color:#444;display:block;margin-bottom:6px}
+    input[type=text], select{width:100%;padding:8px;border:1px solid #d9e1f2;border-radius:6px}
+    .muted{font-size:12px;color:#666}
+
+    .summary{margin-top:12px;padding:10px;border-radius:6px;background:#fbfbff;border:1px dashed #e6ecff}
+
+    @media(max-width:720px){.row{flex-direction:column}}
+
+
+    :root{
+    --cell-height:36px; --font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+    --border:#e0e6ef;
+  }
+  body{font-family:var(--font-family);margin:18px;background:#f4f6fa;color:#222}
+
+  /* Encabezados verticales */
+  .vertical-header {
+    writing-mode: vertical-rl;   /* Texto de arriba hacia abajo */
+    transform: rotate(180deg);   /* Lo voltea para que quede legible */
+    white-space: nowrap;
+    text-align: left;
+    vertical-align: bottom;
+    /* Ajustes de tamaño */
+    height: 160px;     /* Aumenta la altura de la celda */
+    padding: 10px 4px; /* Más espacio interno */
+    font-size: 14px;
+    }
+
+  
+.sheet th {
+  white-space: normal;
+  line-height: 1.2em;
+  max-height: 2.4em;
+  overflow: hidden;
+  text-align: center;
+  vertical-align: middle;
+  padding: 6px 8px;
+}
+.sheet td {
+  height: 96px;               /* Tamaño fijo para las filas */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  vertical-align: middle;
+}
+
+
+.scroll-container {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.sheet {
+  min-width: 1600px; /* Ajusta según el número de columnas */
+}
+
+
+#liquidacionTable th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+  /* 🔧 Quitamos background fijo que sobrescribe colores */
+}
+
+#liquidacionTable th:not([class*="h-"]) {
+  background: #f8f8f8; /* solo aplica fondo gris claro a los th que no tengan clase de color */
+}
+
+.sheet-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 70vh; /* o lo que quieras para el scroll vertical */
+  width: 100%; /* <-- Abarca todo el ancho disponible */
+  border: 1px solid #ddd;
+  background: white;
+}
+
+.sheet-table {
+  border-collapse: collapse;
+  min-width: 2500px; /* 🔑 define un ancho mínimo amplio */
+  table-layout: auto; /* mantiene columnas de tamaño consistente */
+}
+
+.sheet-table th,
+.sheet-table td {
+  border: 1px solid #ccc;
+  padding: 4px;
+  text-align: center;
+  white-space: normal; /* permite saltos de línea */
+  word-break: break-word; /* rompe palabras largas si es necesario */
+}
+
+.sheet th:nth-child(2),
+.sheet td:nth-child(2) {
+  min-width: 120px; /* ajusta según tus necesidades */
+}
+  </style>
+</head>
+<body>
+  <h1>Prototipo — Hoja de Liquidación</h1>
+  <div class="sheet-wrap">
+    <div class="toolbar">
+      <button class="btn primary" id="saveAll">Guardar cambios</button>
+      <button class="btn" id="addRow">+ Agregar fila</button>
+      <div style="flex:1"></div>
+      <div class="muted">Doble clic en una celda para editar. Selecciona una fila para ver detalles.</div>
+    </div>
+
+    <div class="table-container"></div>
+    <table id="liquidacionTable">
+      <thead>
+        <tr>
+          <th style="width:36px">#</th>
+          <th class="h-gris vertical-header">ID Code</th>
+          <th class="h-gris vertical-header">Viaje</th>
+          <th class="h-gris vertical-header">Agricultor</th>
+          <th class="h-gris vertical-header">Remision Agricola</th>
+          <th class="h-gris vertical-header">Fecha de Envio</th>
+          <th class="h-gris vertical-header">Fecha Llegada</th>
+          <th class="h-gris vertical-header">Embalaje</th>
+          <th class="h-gris vertical-header" >Variedad</th>
+          <th class="h-gris vertical-header">Tamaño</th>
+          <th class="h-gris vertical-header">Muestra kg Tierra / Bulto</th>
+          <th class="h-gris vertical-header">Kg Unidad Recibida</th>
+          <th class="h-gris vertical-header">Kg Enviados</th>
+          <th class="h-gris vertical-header">Kg Recibidos</th>
+          <th class="h-azul vertical-header">Kg Recibo Manual</th>
+          <th class="h-gris vertical-header">Cajas Enviadas</th>
+          <th class="h-gris vertical-header">Cajas Recibidas Macheteros</th>
+          <th class="h-azul vertical-header">Cajaas Recibidas Manual</th>
+          <th class="h-gris vertical-header">Existencia Actual</th>
+          <th class="h-verde vertical-header">1era</th>
+          <th class="h-rosac vertical-header">3era Buena</th>
+          <th class="h-azul vertical-header">3era Reg</th>
+          <th class="h-azulf vertical-header">Cambray</th>
+          <th class="h-naranja vertical-header">Tamal</th>
+          <th class="h-azulcielo vertical-header">3erita</th>
+          <th class="h-rosaf vertical-header">Galeana</th>
+          <th class="h-azulcielo vertical-header">Directas</th>
+          <th class="h-gris vertical-header">Desecho Bueno</th>
+          <th class="h-gris vertical-header">Desecho Malo</th>
+          <th class="h-verde vertical-header">1era %</th>
+          <th class="h-verde vertical-header">1era #</th>
+          <th class="h-verde vertical-header">1era $</th>
+          <th class="h-rosac vertical-header">3era Buena %</th>
+          <th class="h-rosac vertical-header">3era Buena #</th>
+          <th class="h-rosac vertical-header">3era Buena $</th>
+          <th class="h-azul vertical-header">3era Reg %</th>
+          <th class="h-azul vertical-header">3era Reg #</th>
+          <th class="h-azul vertical-header">3era Reg $</th>
+          <th class="h-azulf vertical-header">Cambray %</th>
+          <th class="h-azulf vertical-header">Cambray #</th>
+          <th class="h-azulf vertical-header">Cambray $</th>
+          <th class="h-naranja vertical-header">Tamal %</th>
+          <th class="h-naranja vertical-header">Tamal #</th>
+          <th class="h-naranja vertical-header">Tamal $</th>
+          <th class="h-azulcielo vertical-header">3erita %</th>
+          <th class="h-azulcielo vertical-header">3erita #</th>
+          <th class="h-azulcielo vertical-header">3erita $</th>
+          <th class="h-rosaf vertical-header">Galeana %</th>
+          <th class="h-rosaf vertical-header">Galeana #</th>
+          <th class="h-rosaf vertical-header">Galeana $</th>
+          <th class="h-azulcielo vertical-header">Directas %</th>
+          <th class="h-azulcielo vertical-header">Directas #</th>
+          <th class="h-azulcielo vertical-header">Directas $</th>
+          <th class="h-grisd vertical-header">Desecho Bueno %</th>
+          <th class="h-grisd vertical-header">Desecho Bueno #</th>
+          <th class="h-grisd vertical-header">Desecho Bueno $</th>
+          <th class="h-gris vertical-header">Desecho Malo %</th>
+          <th class="h-gris vertical-header">Desecho Malo #</th>
+          <th class="h-gris vertical-header">Desecho Malo $</th>
+          <th class="h-grisd vertical-header">Precio Comp. Venta</th>
+          <th class="h-gris vertical-header">Inventario Lavado</th>
+          <th class="h-gris vertical-header">Inventario en Original por Vender</th>
+          <th class="h-gris vertical-header">Sumatoria Kg Vendidos</th>
+          <th class="h-gris vertical-header">Kg Totales</th>
+          <th class="h-gris vertical-header">Kg Recibidos Netos</th>
+          <th class="h-gris vertical-header">Kg Totales - Kg Recibidos Netos</th>
+          <th class="h-gris vertical-header">Venta Total</th>
+          <th class="h-gris vertical-header">Flete</th>
+          <th class="h-gris vertical-header">Costo Operacional</th>
+          <th class="h-azul vertical-header">Costo Operacional (Manual)</th>
+          <th class="h-gris vertical-header">Total a Pagar</th>
+          <th class="h-gris vertical-header">Utilidad/Perdida</th>
+          <th class="h-gris vertical-header">Utilidad/Perdida por KG Recibido</th>
+          <th class="h-gris vertical-header">Margen</th>
+          <th class="h-gris vertical-header">Flete / Kg</th>
+          <th class="h-gris vertical-header">Precio por Kilo a Pagar</th>
+          <th class="h-azul vertical-header">Kg Tierra x Arp.</th>
+          <th class="h-azul vertical-header">Kg Descuento x Arp.</th>
+          <th class="h-gris vertical-header">KG Netos Papa</th>
+          <th class="h-azul vertical-header">Precio a Liquidar</th>
+          <th class="h-gris vertical-header">Total a Pagar</th>
+          <th class="h-azul vertical-header">Mostrar Liquidación</th>
+          <th class="h-gris vertical-header">Estado de Pago</th>
+          <th class="h-azul vertical-header">Rechazo</th>
+          <th class="h-gris vertical-header">Fotografías</th>
+          <th class="h-gris vertical-header">Videos</th>
+          <th class="h-gris vertical-header">Foto Remisión</th>
+          <th class="h-gris vertical-header">Báscula Kilos Enviados</th>
+          <th class="h-gris vertical-header">Báscula Kilos Recibidos</th>
+          <th style="width:60px">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+
+    <div class="summary" id="summary">
+      Selecciona una fila para ver los detalles aquí.
+    </div>
+  </div>
+
+  <!-- Modal for editing row -->
+  <div id="modal" class="modal" style="display:none">
+    <div class="card">
+      <h3 id="modalTitle">Editar fila</h3>
+      <div class="row">
+        <div class="col">
+          <label>Codigo</label>
+          <input type="text" id="idCode" />
+        </div>
+        <div class="col">
+          <label>Transportista</label>
+          <input type="text" id="mTransport" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="col">
+          <label>Registro en campo</label>
+          <input type="text" id="mRegistro" />
+        </div>
+        <div class="col">
+          <label>Kilos Recibidos</label>
+          <input type="text" id="mKilos" />
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <label>Comentarios</label>
+        <input type="text" id="mComent" />
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" id="closeModal">Cancelar</button>
+        <button class="btn primary" id="saveRow">Actualizar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const data = [
+  {
+    "#": 1,
+    idCode: "LQ-2025-001",
+    viaje: "VJ-001",
+    agricultor: "Agro Santa Rosa",
+    remision: "REM-123",
+    fechaEnvio: "2025-09-15",
+    fechaLlegada: "2025-09-16",
+    embalaje: "Arpilla 25kg",
+    variedad: "Alpha",
+    tamano: "Grande",
+    muestraKgTierra: 2.5,
+    kgUnidadRecibida: 1200,
+    kgEnviados: 1250,
+    kgRecibidos: 1200,
+    kgReciboManual: 1200,
+    cajasEnviadas: 50,
+    cajasRecibidasMacheteros: 50,
+    cajasRecibidasManual: 50,
+    existenciaActual: 1200,
+    primera: 500,
+    terceraBuena: 200,
+    terceraReg: 100,
+    cambray: 50,
+    tamal: 30,
+    tercerita: 20,
+    galeana: 10,
+    directas: 5,
+    desechoBueno: 10,
+    desechoMalo: 5,
+    primeraPct: "41.6%",
+    primeraNum: 500,
+    primeraPrecio: 3500.00,
+    terceraBuenaPct: "16.6%",
+    terceraBuenaNum: 200,
+    terceraBuenaPrecio: 1200.00,
+    terceraRegPct: "8.3%",
+    terceraRegNum: 100,
+    terceraRegPrecio: 500.00,
+    cambrayPct: "4.1%",
+    cambrayNum: 50,
+    cambrayPrecio: 300.00,
+    tamalPct: "2.5%",
+    tamalNum: 30,
+    tamalPrecio: 180.00,
+    terceritaPct: "1.6%",
+    terceritaNum: 20,
+    terceritaPrecio: 120.00,
+    galeanaPct: "0.8%",
+    galeanaNum: 10,
+    galeanaPrecio: 60.00,
+    directasPct: "0.4%",
+    directasNum: 5,
+    directasPrecio: 30.00,
+    desechoBuenoPct: "0.8%",
+    desechoBuenoNum: 10,
+    desechoBuenoPrecio: 0.00,
+    desechoMaloPct: "0.4%",
+    desechoMaloNum: 5,
+    desechoMaloPrecio: 0.00,
+    precioCompVenta: 2.9,
+    inventarioLavado: 0,
+    inventarioOriginal: 0,
+    sumatoriaKgVendidos: 1200,
+    kgTotales: 1250,
+    kgRecibidosNetos: 1200,
+    diferenciaKg: 50,
+    ventaTotal: 5090.00,
+    flete: 1200.00,
+    costoOperacional: 800.00,
+    costoOperacionalManual: 0.00,
+    totalPagar: 3090.00,
+    utilidadPerdida: 500.00,
+    utilidadPorKg: 0.41,
+    margen: "12%",
+    fletePorKg: 1.00,
+    precioPorKilo: 2.57,
+    kgTierraArp: 10,
+    kgDescuentoArp: 5,
+    kgNetosPapa: 1185,
+    precioLiquidar: 2.6,
+    totalAPagar: 3081.00,
+    mostrarLiquidacion: "Sí",
+    estadoPago: "Pendiente",
+    rechazo: "No",
+    fotografias: "3",
+    videos: "0",
+    fotoRemision: "Sí",
+    basculaKgEnviados: 1250,
+    basculaKgRecibidos: 1200,
+    acciones: "Editar"
+  },
+  {
+    "#": 2,
+    idCode: "LQ-2025-002",
+    viaje: "VJ-002",
+    agricultor: "Rancho El Progreso",
+    remision: "REM-124",
+    fechaEnvio: "2025-09-18",
+    fechaLlegada: "2025-09-19",
+    embalaje: "Arpilla 30kg",
+    variedad: "Russet",
+    tamano: "Mediano",
+    muestraKgTierra: 3.0,
+    kgUnidadRecibida: 900,
+    kgEnviados: 950,
+    kgRecibidos: 900,
+    kgReciboManual: 900,
+    cajasEnviadas: 40,
+    cajasRecibidasMacheteros: 39,
+    cajasRecibidasManual: 39,
+    existenciaActual: 900,
+    primera: 400,
+    terceraBuena: 150,
+    terceraReg: 80,
+    cambray: 40,
+    tamal: 20,
+    tercerita: 10,
+    galeana: 5,
+    directas: 0,
+    desechoBueno: 5,
+    desechoMalo: 2,
+    primeraPct: "44.4%",
+    primeraNum: 400,
+    primeraPrecio: 2800.00,
+    terceraBuenaPct: "16.6%",
+    terceraBuenaNum: 150,
+    terceraBuenaPrecio: 900.00,
+    terceraRegPct: "8.8%",
+    terceraRegNum: 80,
+    terceraRegPrecio: 400.00,
+    cambrayPct: "4.4%",
+    cambrayNum: 40,
+    cambrayPrecio: 240.00,
+    tamalPct: "2.2%",
+    tamalNum: 20,
+    tamalPrecio: 120.00,
+    terceritaPct: "1.1%",
+    terceritaNum: 10,
+    terceritaPrecio: 60.00,
+    galeanaPct: "0.5%",
+    galeanaNum: 5,
+    galeanaPrecio: 30.00,
+    directasPct: "0.0%",
+    directasNum: 0,
+    directasPrecio: 0.00,
+    desechoBuenoPct: "0.5%",
+    desechoBuenoNum: 5,
+    desechoBuenoPrecio: 0.00,
+    desechoMaloPct: "0.2%",
+    desechoMaloNum: 2,
+    desechoMaloPrecio: 0.00,
+    precioCompVenta: 2.8,
+    inventarioLavado: 0,
+    inventarioOriginal: 0,
+    sumatoriaKgVendidos: 900,
+    kgTotales: 950,
+    kgRecibidosNetos: 900,
+    diferenciaKg: 50,
+    ventaTotal: 3800.00,
+    flete: 950.00,
+    costoOperacional: 700.00,
+    costoOperacionalManual: 0.00,
+    totalPagar: 2150.00,
+    utilidadPerdida: 300.00,
+    utilidadPorKg: 0.33,
+    margen: "10%",
+    fletePorKg: 1.05,
+    precioPorKilo: 2.39,
+    kgTierraArp: 8,
+    kgDescuentoArp: 4,
+    kgNetosPapa: 888,
+    precioLiquidar: 2.4,
+    totalAPagar: 2131.20,
+    mostrarLiquidacion: "Sí",
+    estadoPago: "Pagado",
+    rechazo: "No",
+    fotografias: "2",
+    videos: "1",
+    fotoRemision: "Sí",
+    basculaKgEnviados: 950,
+    basculaKgRecibidos: 900,
+    acciones: "Editar"
+  }
+];
+
+    const tbody = document.getElementById('tbody');
+    const summary = document.getElementById('summary');
+
+    function render(){
+      tbody.innerHTML = '';
+      data.forEach((r,i)=>{
+        const tr = document.createElement('tr');
+        tr.dataset.index = i;
+        tr.innerHTML = `
+          <td>${i+1}</td>
+           <td class="editable" data-field="idCode">${r.idCode || ''}</td>
+      <td class="editable" data-field="viaje">${r.viaje || ''}</td>
+      <td class="editable" data-field="agricultor">${r.agricultor || ''}</td>
+      <td class="editable" data-field="remisionAgricola">${r.remisionAgricola || ''}</td>
+      <td class="editable" data-field="fechaEnvio">${r.fechaEnvio || ''}</td>
+      <td class="editable" data-field="fechaLlegada">${r.fechaLlegada || ''}</td>
+      <td class="editable" data-field="embalaje">${r.embalaje || ''}</td>
+      <td class="editable" data-field="variedad">${r.variedad || ''}</td>
+      <td class="editable" data-field="tamaño">${r.tamaño || ''}</td>
+      <td class="editable" data-field="muestraKgTierraBulto">${r.muestraKgTierraBulto || ''}</td>
+      <td class="editable" data-field="kgUnidadRecibida">${r.kgUnidadRecibida || ''}</td>
+      <td class="editable" data-field="kgEnviados">${r.kgEnviados || ''}</td>
+      <td class="editable" data-field="kgRecibidos">${r.kgRecibidos || ''}</td>
+      <td class="editable" data-field="kgReciboManual">${r.kgReciboManual || ''}</td>
+      <td class="editable" data-field="cajasEnviadas">${r.cajasEnviadas || ''}</td>
+      <td class="editable" data-field="cajasRecibidasMacheteros">${r.cajasRecibidasMacheteros || ''}</td>
+      <td class="editable" data-field="cajasRecibidasManual">${r.cajasRecibidasManual || ''}</td>
+      <td class="editable" data-field="existenciaActual">${r.existenciaActual || ''}</td>
+      <td class="editable" data-field="primera">${r.primera || ''}</td>
+      <td class="editable" data-field="terceraBuena">${r.terceraBuena || ''}</td>
+      <td class="editable" data-field="terceraReg">${r.terceraReg || ''}</td>
+      <td class="editable" data-field="cambray">${r.cambray || ''}</td>
+      <td class="editable" data-field="tamal">${r.tamal || ''}</td>
+      <td class="editable" data-field="tercerita">${r.tercerita || ''}</td>
+      <td class="editable" data-field="galeana">${r.galeana || ''}</td>
+      <td class="editable" data-field="directas">${r.directas || ''}</td>
+      <td class="editable" data-field="desechoBueno">${r.desechoBueno || ''}</td>
+      <td class="editable" data-field="desechoMalo">${r.desechoMalo || ''}</td>
+      <td class="editable" data-field="primeraPorcentaje">${r.primeraPorcentaje || ''}</td>
+      <td class="editable" data-field="primeraNumero">${r.primeraNumero || ''}</td>
+      <td class="editable" data-field="primeraPrecio">${r.primeraPrecio || ''}</td>
+      <td class="editable" data-field="terceraBuenaPorcentaje">${r.terceraBuenaPorcentaje || ''}</td>
+      <td class="editable" data-field="terceraBuenaNumero">${r.terceraBuenaNumero || ''}</td>
+      <td class="editable" data-field="terceraBuenaPrecio">${r.terceraBuenaPrecio || ''}</td>
+      <td class="editable" data-field="terceraRegPorcentaje">${r.terceraRegPorcentaje || ''}</td>
+      <td class="editable" data-field="terceraRegNumero">${r.terceraRegNumero || ''}</td>
+      <td class="editable" data-field="terceraRegPrecio">${r.terceraRegPrecio || ''}</td>
+      <td class="editable" data-field="cambrayPorcentaje">${r.cambrayPorcentaje || ''}</td>
+      <td class="editable" data-field="cambrayNumero">${r.cambrayNumero || ''}</td>
+      <td class="editable" data-field="cambrayPrecio">${r.cambrayPrecio || ''}</td>
+      <td class="editable" data-field="tamalPorcentaje">${r.tamalPorcentaje || ''}</td>
+      <td class="editable" data-field="tamalNumero">${r.tamalNumero || ''}</td>
+      <td class="editable" data-field="tamalPrecio">${r.tamalPrecio || ''}</td>
+      <td class="editable" data-field="terceritaPorcentaje">${r.terceritaPorcentaje || ''}</td>
+      <td class="editable" data-field="terceritaNumero">${r.terceritaNumero || ''}</td>
+      <td class="editable" data-field="terceritaPrecio">${r.terceritaPrecio || ''}</td>
+      <td class="editable" data-field="galeanaPorcentaje">${r.galeanaPorcentaje || ''}</td>
+      <td class="editable" data-field="galeanaNumero">${r.galeanaNumero || ''}</td>
+      <td class="editable" data-field="galeanaPrecio">${r.galeanaPrecio || ''}</td>
+      <td class="editable" data-field="directasPorcentaje">${r.directasPorcentaje || ''}</td>
+      <td class="editable" data-field="directasNumero">${r.directasNumero || ''}</td>
+      <td class="editable" data-field="directasPrecio">${r.directasPrecio || ''}</td>
+      <td class="editable" data-field="desechoBuenoPorcentaje">${r.desechoBuenoPorcentaje || ''}</td>
+      <td class="editable" data-field="desechoBuenoNumero">${r.desechoBuenoNumero || ''}</td>
+      <td class="editable" data-field="desechoBuenoPrecio">${r.desechoBuenoPrecio || ''}</td>
+      <td class="editable" data-field="desechoMaloPorcentaje">${r.desechoMaloPorcentaje || ''}</td>
+      <td class="editable" data-field="desechoMaloNumero">${r.desechoMaloNumero || ''}</td>
+      <td class="editable" data-field="desechoMaloPrecio">${r.desechoMaloPrecio || ''}</td>
+      <td class="editable" data-field="precioCompraVenta">${r.precioCompraVenta || ''}</td>
+      <td class="editable" data-field="inventarioLavado">${r.inventarioLavado || ''}</td>
+      <td class="editable" data-field="inventarioOriginal">${r.inventarioOriginal || ''}</td>
+      <td class="editable" data-field="kgVendidos">${r.kgVendidos || ''}</td>
+      <td class="editable" data-field="kgTotales">${r.kgTotales || ''}</td>
+      <td class="editable" data-field="kgRecibidosNetos">${r.kgRecibidosNetos || ''}</td>
+      <td class="editable" data-field="kgDiferencia">${r.kgDiferencia || ''}</td>
+      <td class="editable" data-field="ventaTotal">${r.ventaTotal || ''}</td>
+      <td class="editable" data-field="flete">${r.flete || ''}</td>
+      <td class="editable" data-field="costoOperacional">${r.costoOperacional || ''}</td>
+      <td class="editable" data-field="costoOperacionalManual">${r.costoOperacionalManual || ''}</td>
+      <td class="editable" data-field="totalPagar">${r.totalPagar || ''}</td>
+      <td class="editable" data-field="utilidad">${r.utilidad || ''}</td>
+      <td class="editable" data-field="utilidadKg">${r.utilidadKg || ''}</td>
+      <td class="editable" data-field="margen">${r.margen || ''}</td>
+      <td class="editable" data-field="fleteKg">${r.fleteKg || ''}</td>
+      <td class="editable" data-field="precioKiloPagar">${r.precioKiloPagar || ''}</td>
+      <td class="editable" data-field="kgTierraArp">${r.kgTierraArp || ''}</td>
+      <td class="editable" data-field="kgDescuentoArp">${r.kgDescuentoArp || ''}</td>
+      <td class="editable" data-field="kgNetosPapa">${r.kgNetosPapa || ''}</td>
+      <td class="editable" data-field="precioLiquidar">${r.precioLiquidar || ''}</td>
+      <td class="editable" data-field="totalPagarFinal">${r.totalPagarFinal || ''}</td>
+      <td class="editable" data-field="mostrarLiquidacion">${r.mostrarLiquidacion || ''}</td>
+      <td class="editable" data-field="estadoPago">${r.estadoPago || ''}</td>
+      <td class="editable" data-field="rechazo">${r.rechazo || ''}</td>
+      <td class="editable" data-field="fotografias">${r.fotografias || ''}</td>
+      <td class="editable" data-field="videos">${r.videos || ''}</td>
+      <td class="editable" data-field="fotoRemision">${r.fotoRemision || ''}</td>
+      <td class="editable" data-field="basculaEnviados">${r.basculaEnviados || ''}</td>
+      <td class="editable" data-field="basculaRecibidos">${r.basculaRecibidos || ''}</td>
+      <td style="text-align:center">
+        <button class="btn" data-action="edit">Editar</button>
+        <button class="btn" data-action="apply">Aplicar</button>
+      </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.querySelectorAll('td.editable').forEach(td=>{
+        td.ondblclick = () => openInlineEditor(td);
+      });
+      document.querySelectorAll('button[data-action="edit"]').forEach(b=>b.onclick = e=>{
+        const idx = e.target.closest('tr').dataset.index; openModal(idx);
+      });
+      document.querySelectorAll('button[data-action="apply"]').forEach(b=>b.onclick = e=>{
+        const idx = +e.target.closest('tr').dataset.index; applyRow(idx);
+      });
+
+      document.querySelectorAll('#tbody tr').forEach(tr=>{
+        tr.onclick = (ev)=>{
+          if(ev.target.tagName.toLowerCase() === 'button') return;
+          const idx = +tr.dataset.index; showSummary(idx);
+        }
+      });
+    }
+
+    function openInlineEditor(td){
+      const orig = td.textContent;
+      const input = document.createElement('input');
+      input.type = 'text'; input.value = orig; input.style.width = '100%';
+      td.innerHTML = ''; td.appendChild(input); input.focus();
+      input.onblur = ()=>{ td.textContent = input.value; const tr = td.closest('tr'); const idx = +tr.dataset.index; const field = td.dataset.field; data[idx][field] = input.value; showSummary(idx); };
+      input.onkeydown = (e)=>{ if(e.key==='Enter') input.blur(); if(e.key==='Escape'){ td.textContent = orig; } };
+    }
+
+    const modal = document.getElementById('modal');
+    const mFecha = document.getElementById('mFecha');
+    const mTransport = document.getElementById('mTransport');
+    const mRegistro = document.getElementById('mRegistro');
+    const mKilos = document.getElementById('mKilos');
+    const mComent = document.getElementById('mComent');
+    let editingIndex = null;
+
+    function openModal(idx){
+      editingIndex = idx;
+      const r = data[idx];
+      Fecha.value = r.fecha; Transport.value = r.transport; mRegistro.value = r.registro; mKilos.value = r.kilos; mComent.value = r.comentarios;
+      modal.style.display = 'flex';
+    }
+    document.getElementById('closeModal').onclick = ()=>{ modal.style.display='none'; editingIndex=null };
+    document.getElementById('saveRow').onclick = ()=>{
+      if(editingIndex===null) return; const r = data[editingIndex]; r.fecha = Fecha.value; r.transport = Transport.value; r.registro = Registro.value; r.kilos = mKilos.value; r.comentarios = mComent.value; modal.style.display='none'; render(); showSummary(editingIndex);
+    };
+
+    function applyRow(idx){
+      alert('Cambios aplicados para la fila ' + (idx+1));
+      showSummary(idx);
+    }
+
+    function showSummary(idx){
+      const r = data[idx];
+      summary.innerHTML = `
+        <strong>Fila ${idx+1}</strong><br>
+        Fecha: ${r.fecha} <br>
+        Transportista: ${r.transport} <br>
+        Registro: ${r.registro} <br>
+        Kilos: ${r.kilos} <br>
+        Lavado: ${r.lavado} <br>
+        Destino: ${r.destino} <br>
+        Comentarios: ${r.comentarios}
+      `;
+    }
+
+    document.getElementById('saveAll').onclick = ()=>{
+      const payload = JSON.stringify(data, null, 2);
+      const w = window.open('','_blank'); w.document.write('<pre>'+payload.replace(/</g,'&lt;')+'</pre>');
+    };
+
+    document.getElementById('addRow').onclick = ()=>{
+      data.push({fecha:'',transport:'',registro:'',kilos:'',lavado:'',destino:'',comentarios:''}); render();
+      const lastIdx = data.length-1; openModal(lastIdx);
+    };
+
+    render();
+  </script>
+</body>
+</html>
